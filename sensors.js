@@ -154,3 +154,68 @@ function setupOrientation(threshold) {
     orientationSensor.threshold = threshold;
   }
 }
+
+
+// p5 sketch
+
+var rotX = 0;
+var rotY = 0;
+var rotZ = 0;
+
+var accX = 0;
+var accY = 0;
+var accZ = 0;
+var speed = 0;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  textFont('monospace');
+  setupOrientation(0);
+  setupMotion(0);
+}
+
+function draw() {
+  background(0);
+
+  if (orientationSensor.hasNewValue) {
+    let gyro = orientationSensor.get();
+    rotX = gyro.alpha;
+    rotY = gyro.beta;
+    rotZ = gyro.gamma;
+  }
+
+  if (motionSensor.hasNewValue) {
+    let motion = motionSensor.get();
+    accX = motion.x;
+    accY = motion.y;
+    accZ = motion.z;
+    speed = sqrt(accX * accX + accY * accY + accZ * accZ);
+  }
+
+  fill(255);
+  noStroke();
+  textSize(18);
+
+  let lh = 36;
+  let x = 30;
+  let y = 80;
+
+  text('ROTATION', x, y);
+  text('x  ' + nf(rotX, 1, 1), x, y + lh * 1);
+  text('y  ' + nf(rotY, 1, 1), x, y + lh * 2);
+  text('z  ' + nf(rotZ, 1, 1), x, y + lh * 3);
+
+  text('ACCELERATION', x, y + lh * 5);
+  text('x  ' + nf(accX, 1, 1), x, y + lh * 6);
+  text('y  ' + nf(accY, 1, 1), x, y + lh * 7);
+  text('z  ' + nf(accZ, 1, 1), x, y + lh * 8);
+
+  text('SPEED', x, y + lh * 10);
+  text(nf(speed, 1, 2), x, y + lh * 11);
+}
+
+// iOS requires sensor permission to be requested from a user gesture
+function touchStarted() {
+  setupOrientation(0);
+  setupMotion(0);
+}
