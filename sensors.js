@@ -174,10 +174,10 @@ var btn;
 var startBtn, resetBtn;
 
 // rotation counting
-var counting = false;
-var rotCount = { x: 0, y: 0, z: 0 };
-var cumAngle = { x: 0, y: 0, z: 0 };
-var prevAngle = { x: null, y: null, z: null };
+var counting       = false;
+var cumAngle       = { x: 0, y: 0, z: 0 };
+var prevAngle      = { x: null, y: null, z: null };
+var confirmedCount = { x: 0, y: 0, z: 0 };
 
 // returns shortest signed difference between two angles,
 // wrap is the full range (360 for alpha/beta, 180 for gamma)
@@ -189,10 +189,41 @@ function shortestAngle(prev, curr, wrap) {
   return d;
 }
 
+// Hysteresis: counting forward is free, but reversing needs HYST degrees
+// to cross back before the count drops — prevents flickering at boundaries.
+var HYST = 20;
+
+function updateHysteresis(cum, confirmed, full) {
+  let raw = Math.trunc(cum / full);
+  if (raw === confirmed) return confirmed;
+
+  if (raw > confirmed) {
+    if (confirmed >= 0) {
+      return confirmed + 1;             // counting positive: free
+    } else {
+      // uncounting from negative: need HYST past the boundary
+      if (cum > confirmed * full + HYST) return confirmed + 1;
+      return confirmed;
+    }
+  }
+
+  if (raw < confirmed) {
+    if (confirmed <= 0) {
+      return confirmed - 1;             // counting negative: free
+    } else {
+      // uncounting from positive: need HYST past the boundary
+      if (cum < confirmed * full - HYST) return confirmed - 1;
+      return confirmed;
+    }
+  }
+
+  return confirmed;
+}
+
 function resetCount() {
-  rotCount = { x: 0, y: 0, z: 0 };
-  cumAngle = { x: 0, y: 0, z: 0 };
-  prevAngle = { x: null, y: null, z: null };
+  cumAngle       = { x: 0, y: 0, z: 0 };
+  prevAngle      = { x: null, y: null, z: null };
+  confirmedCount = { x: 0, y: 0, z: 0 };
 }
 
 function btnStyle(b, bg, fg) {
@@ -213,11 +244,13 @@ function setup() {
   // real HTML buttons — always tappable on mobile
   startBtn = createButton('START');
   btnStyle(startBtn, '#32c832', '#000');
-  startBtn.mousePressed(toggleCounting);
+  startBtn.elt.addEventListener('click', toggleCounting);
+  startBtn.elt.addEventListener('touchend', function(e) { e.preventDefault(); toggleCounting(); });
 
   resetBtn = createButton('RESET');
   btnStyle(resetBtn, '#555', '#fff');
-  resetBtn.mousePressed(function () { resetCount(); });
+  resetBtn.elt.addEventListener('click', resetCount);
+  resetBtn.elt.addEventListener('touchend', function(e) { e.preventDefault(); resetCount(); });
 
   // on desktop/Android sensors start automatically
   // on iOS a real button tap is required to trigger the permission dialog
@@ -239,7 +272,8 @@ function setup() {
     btn.style('padding', '16px 32px');
     btn.style('cursor', 'pointer');
     btn.style('z-index', '10');
-    btn.mousePressed(startSensors);
+    btn.elt.addEventListener('click', startSensors);
+    btn.elt.addEventListener('touchend', function(e) { e.preventDefault(); startSensors(); });
   } else {
     startSensors();
   }
@@ -283,9 +317,10 @@ function draw() {
         prevAngle.y = rotY;
         prevAngle.z = rotZ;
 
-        rotCount.x = Math.trunc(cumAngle.x / 360);
-        rotCount.y = Math.trunc(cumAngle.y / 360);
-        rotCount.z = Math.trunc(cumAngle.z / 180); // 180 = max gamma range
+        // all axes use 360 — Z needs 2 gamma sweeps (2×180°) per full rotation
+        confirmedCount.x = updateHysteresis(cumAngle.x, confirmedCount.x, 360);
+        confirmedCount.y = updateHysteresis(cumAngle.y, confirmedCount.y, 360);
+        confirmedCount.z = updateHysteresis(cumAngle.z, confirmedCount.z, 360);
       }
     }
   }
@@ -322,7 +357,7 @@ function draw() {
 
   // rotation count display
   text('ROTATIONS', x, y + lh * 13);
-  text('x  ' + rotCount.x, x, y + lh * 14);
-  text('y  ' + rotCount.y, x, y + lh * 15);
-  text('z  ' + rotCount.z + '  (limited)', x, y + lh * 16);
+  text('x  ' + confirmedCount.x, x, y + lh * 14);
+  text('y  ' + confirmedCount.y, x, y + lh * 15);
+  text('z  ' + confirmedCount.z, x, y + lh * 16);
 }
