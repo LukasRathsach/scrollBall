@@ -1,6 +1,5 @@
-// helper functions, MOJA2023/24 + ASMO2024
+// laver variabler til distance
 
-// thresholdvector, MOJA2023
 function distance3D(x0, y0, z0, x1, y1, z1) {
   let a = x1 - x0;
   let b = y1 - y0;
@@ -9,9 +8,7 @@ function distance3D(x0, y0, z0, x1, y1, z1) {
   return dist;
 }
 
-
-
-// motion, MOJA2023 + ASMO2024
+// laver nye variabler til bevægelse
 const motionFactor = 100;
 
 var motionSensor = {
@@ -30,6 +27,8 @@ var motionSensor = {
   }
 };
 
+// laver koordinater til acceleration
+
 var motionValues = {
   accX: 0,
   accY: 0,
@@ -39,6 +38,7 @@ var motionValues = {
   accZOld: 0,
 };
 
+// kalkulerer bevægelse og acceleration ved at sammenligne med tidligere værdier
 function doMotion(e) {
   motionValues.accX = motionFactor * e.acceleration.x;
   motionValues.accY = motionFactor * e.acceleration.y;
@@ -63,7 +63,7 @@ function doMotion(e) {
 }
 
 
-// REQUEST PERMISSION ON IOS DEVICeS
+// Vi siger til iphone at vi ikke er farlige
 function setupMotion(threshold) {
 
   if (typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -85,7 +85,7 @@ function setupMotion(threshold) {
   }
 }
 
-// orientation, MOJA2023 + ASMO2024
+// Laver variabler til rotation
 
 var orientationSensor = {
   x: 0,
@@ -103,6 +103,7 @@ var orientationSensor = {
   }
 };
 
+// laver variabler til gamle og nye koordinater så vi kan sammenligne
 var orientationValues = {
   alpha: 0,
   beta: 0,
@@ -111,6 +112,8 @@ var orientationValues = {
   betaOld: 0,
   gammaOld: 0
 };
+
+// sammenligner variabler
 
 function doOrientation(e) {
   orientationValues.alpha = e.alpha;
@@ -135,7 +138,7 @@ function doOrientation(e) {
   }
 }
 
-// REQUEST PERMISSION ON IOS DEVICES
+// // Vi siger til iphone at vi ikke er farlige igen
 function setupOrientation(threshold) {
   if (typeof DeviceOrientationEvent.requestPermission === 'function') {
     DeviceOrientationEvent.requestPermission()
@@ -156,7 +159,7 @@ function setupOrientation(threshold) {
 }
 
 
-// p5 sketch
+// laver variabler igen wup wup
 
 var rotX = 0;
 var rotY = 0;
@@ -198,6 +201,7 @@ function setup() {
   }
 }
 
+// Starter sensoren når knappen bliver trykket på
 function startSensors() {
   setupOrientation(0);
   setupMotion(0);
@@ -207,6 +211,7 @@ function startSensors() {
 function draw() {
   background(0);
 
+  // hvis sensor opdager noget nyt så se lige hvad det er
   if (orientationSensor.hasNewValue) {
     let gyro = orientationSensor.get();
     rotX = gyro.alpha;
@@ -222,6 +227,7 @@ function draw() {
     speed = sqrt(accX * accX + accY * accY + accZ * accZ);
   }
 
+  // lidt design med tekst, baggrund osv.
   fill(255);
   noStroke();
   textSize(18);
