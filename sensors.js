@@ -5,7 +5,7 @@ function distance3D(x0, y0, z0, x1, y1, z1) {
   let a = x1 - x0;
   let b = y1 - y0;
   let c = z1 - z0;
-  let dist = Math.round(Math.sqrt(a*a + b*b + c*c));
+  let dist = Math.round(Math.sqrt(a * a + b * b + c * c));
   return dist;
 }
 
@@ -20,7 +20,7 @@ var motionSensor = {
   z: 0,
   threshold: 0,
   hasNewValue: false,
-  get: function() {
+  get: function () {
     this.hasNewValue = false;
     return {
       x: this.x,
@@ -41,9 +41,9 @@ var motionValues = {
 
 function doMotion(e) {
   motionValues.accX = motionFactor * e.acceleration.x;
-  motionValues.accY = motionFactor * e.acceleration.y; 
+  motionValues.accY = motionFactor * e.acceleration.y;
   motionValues.accZ = motionFactor * e.acceleration.z;
-    
+
   let difference = distance3D(
     motionValues.accX, motionValues.accY, motionValues.accZ,
     motionValues.accXOld, motionValues.accYOld, motionValues.accZOld
@@ -64,24 +64,23 @@ function doMotion(e) {
 
 
 // REQUEST PERMISSION ON IOS DEVICeS
-function setupMotion(threshold)
-{
-  
+function setupMotion(threshold) {
+
   if (typeof DeviceMotionEvent.requestPermission === 'function') {
-    
-      DeviceMotionEvent.requestPermission()
-        .then(permissionState => {
-          if (permissionState === 'granted') {
-            window.addEventListener("devicemotion", doMotion, false);
-          }
-        })
-        .catch(console.error);
+
+    DeviceMotionEvent.requestPermission()
+      .then(permissionState => {
+        if (permissionState === 'granted') {
+          window.addEventListener("devicemotion", doMotion, false);
+        }
+      })
+      .catch(console.error);
   }
-  else { 
-    window.addEventListener("devicemotion", doMotion, false); 
+  else {
+    window.addEventListener("devicemotion", doMotion, false);
   }
 
-  if(typeof threshold === 'number') {
+  if (typeof threshold === 'number') {
     motionSensor.threshold = threshold;
   }
 }
@@ -94,7 +93,7 @@ var orientationSensor = {
   z: 0,
   threshold: 0,
   hasNewValue: false,
-  get: function() {
+  get: function () {
     this.hasNewValue = false;
     return {
       alpha: this.x,
@@ -115,14 +114,14 @@ var orientationValues = {
 
 function doOrientation(e) {
   orientationValues.alpha = e.alpha;
-  orientationValues.beta = e.beta; 
+  orientationValues.beta = e.beta;
   orientationValues.gamma = e.gamma;
 
   let difference = distance3D(
     orientationValues.alpha, orientationValues.beta, orientationValues.gamma,
     orientationValues.alphaOld, orientationValues.betaOld, orientationValues.gammaOld
   );
-  
+
   if (difference >= orientationSensor.threshold) {
     orientationSensor.hasNewValue = true;
 
@@ -135,23 +134,23 @@ function doOrientation(e) {
     orientationValues.gammaOld = orientationValues.gamma;
   }
 }
- 
+
 // REQUEST PERMISSION ON IOS DEVICES
 function setupOrientation(threshold) {
   if (typeof DeviceOrientationEvent.requestPermission === 'function') {
     DeviceOrientationEvent.requestPermission()
-          .then(permissionState => {
-            if (permissionState === 'granted') {
-              window.addEventListener("deviceorientation", doOrientation, false);
-            }
-          })
-          .catch(console.error);
-  }      
-  else { 
-    window.addEventListener("deviceorientation", doOrientation, false); 
+      .then(permissionState => {
+        if (permissionState === 'granted') {
+          window.addEventListener("deviceorientation", doOrientation, false);
+        }
+      })
+      .catch(console.error);
   }
-  
-  if(typeof threshold === 'number') {
+  else {
+    window.addEventListener("deviceorientation", doOrientation, false);
+  }
+
+  if (typeof threshold === 'number') {
     orientationSensor.threshold = threshold;
   }
 }
