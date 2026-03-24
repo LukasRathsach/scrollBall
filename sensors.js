@@ -171,6 +171,7 @@ var accZ = 0;
 var speed = 0;
 
 var btn;
+var startBtn, resetBtn;
 
 // rotation counting
 var counting = false;
@@ -194,9 +195,29 @@ function resetCount() {
   prevAngle = { x: null, y: null, z: null };
 }
 
+function btnStyle(b, bg, fg) {
+  b.style('font-size', '18px');
+  b.style('font-family', 'monospace');
+  b.style('background', bg);
+  b.style('color', fg);
+  b.style('border', '1px solid #555');
+  b.style('padding', '12px 28px');
+  b.style('cursor', 'pointer');
+  b.style('margin', '8px 8px 0 0');
+}
+
 function setup() {
-  createCanvas(windowWidth, windowHeight);
+  createCanvas(windowWidth, 680);
   textFont('monospace');
+
+  // real HTML buttons — always tappable on mobile
+  startBtn = createButton('START');
+  btnStyle(startBtn, '#32c832', '#000');
+  startBtn.mousePressed(toggleCounting);
+
+  resetBtn = createButton('RESET');
+  btnStyle(resetBtn, '#555', '#fff');
+  resetBtn.mousePressed(function () { resetCount(); });
 
   // on desktop/Android sensors start automatically
   // on iOS a real button tap is required to trigger the permission dialog
@@ -206,7 +227,7 @@ function setup() {
 
   if (needsPermission) {
     btn = createButton('TAP TO START');
-    btn.style('position', 'absolute');
+    btn.style('position', 'fixed');
     btn.style('top', '50%');
     btn.style('left', '50%');
     btn.style('transform', 'translate(-50%, -50%)');
@@ -217,10 +238,17 @@ function setup() {
     btn.style('border', '1px solid white');
     btn.style('padding', '16px 32px');
     btn.style('cursor', 'pointer');
+    btn.style('z-index', '10');
     btn.mousePressed(startSensors);
   } else {
     startSensors();
   }
+}
+
+function toggleCounting() {
+  counting = !counting;
+  startBtn.html(counting ? 'STOP' : 'START');
+  btnStyle(startBtn, counting ? '#c83232' : '#32c832', '#000');
 }
 
 // Starter sensoren når knappen bliver trykket på
@@ -297,53 +325,4 @@ function draw() {
   text('x  ' + rotCount.x, x, y + lh * 14);
   text('y  ' + rotCount.y, x, y + lh * 15);
   text('z  ' + rotCount.z + '  (limited)', x, y + lh * 16);
-
-  // START / STOP button
-  let btnX = x;
-  let btnY = y + lh * 18;
-  let btnW = 130;
-  let btnH = 44;
-
-  fill(counting ? color(200, 50, 50) : color(50, 200, 50));
-  noStroke();
-  rect(btnX, btnY, btnW, btnH, 6);
-  fill(0);
-  textSize(16);
-  textAlign(CENTER, CENTER);
-  text(counting ? 'STOP' : 'START', btnX + btnW / 2, btnY + btnH / 2);
-
-  // RESET button
-  let resetX = btnX + btnW + 20;
-  fill(color(80, 80, 80));
-  rect(resetX, btnY, btnW, btnH, 6);
-  fill(255);
-  text('RESET', resetX + btnW / 2, btnY + btnH / 2);
-
-  textAlign(LEFT, BASELINE);
-  textSize(18);
-}
-
-function mousePressed() {
-  let lh = 34;
-  let x = 30;
-  let y = 60;
-  let btnY = y + lh * 18;
-  let btnW = 130;
-  let btnH = 44;
-
-  // START / STOP
-  if (mouseX > x && mouseX < x + btnW &&
-    mouseY > btnY && mouseY < btnY + btnH) {
-    counting = !counting;
-    if (counting && prevAngle.x === null) {
-      // prevAngle will be seeded on the first sensor reading
-    }
-  }
-
-  // RESET
-  let resetX = x + btnW + 20;
-  if (mouseX > resetX && mouseX < resetX + btnW &&
-    mouseY > btnY && mouseY < btnY + btnH) {
-    resetCount();
-  }
 }
