@@ -172,6 +172,28 @@ var speed = 0;
 
 var btn;
 
+// rotation counting
+var counting = false;
+var rotCount = { x: 0, y: 0, z: 0 };
+var cumAngle = { x: 0, y: 0, z: 0 };
+var prevAngle = { x: null, y: null, z: null };
+
+// returns shortest signed difference between two angles,
+// wrap is the full range (360 for alpha/beta, 180 for gamma)
+function shortestAngle(prev, curr, wrap) {
+  let d = curr - prev;
+  let h = wrap / 2;
+  while (d > h) d -= wrap;
+  while (d < -h) d += wrap;
+  return d;
+}
+
+function resetCount() {
+  rotCount = { x: 0, y: 0, z: 0 };
+  cumAngle = { x: 0, y: 0, z: 0 };
+  prevAngle = { x: null, y: null, z: null };
+}
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   textFont('monospace');
@@ -217,6 +239,27 @@ function draw() {
     rotX = gyro.alpha;
     rotY = gyro.beta;
     rotZ = gyro.gamma;
+
+    // cumulative angle tracking — sum up small steps and divide by 360
+    if (counting) {
+      if (prevAngle.x === null) {
+        prevAngle.x = rotX;
+        prevAngle.y = rotY;
+        prevAngle.z = rotZ;
+      } else {
+        cumAngle.x += shortestAngle(prevAngle.x, rotX, 360); // alpha: 0-360
+        cumAngle.y += shortestAngle(prevAngle.y, rotY, 360); // beta: -180 to 180
+        cumAngle.z += shortestAngle(prevAngle.z, rotZ, 180); // gamma: -90 to 90 (limited!)
+
+        prevAngle.x = rotX;
+        prevAngle.y = rotY;
+        prevAngle.z = rotZ;
+
+        rotCount.x = Math.trunc(cumAngle.x / 360);
+        rotCount.y = Math.trunc(cumAngle.y / 360);
+        rotCount.z = Math.trunc(cumAngle.z / 180); // 180 = max gamma range
+      }
+    }
   }
 
   if (motionSensor.hasNewValue) {
@@ -232,9 +275,9 @@ function draw() {
   noStroke();
   textSize(18);
 
-  let lh = 36;
+  let lh = 34;
   let x = 30;
-  let y = 80;
+  let y = 60;
 
   text('ROTATION', x, y);
   text('x  ' + nf(rotX, 1, 1), x, y + lh * 1);
@@ -248,4 +291,59 @@ function draw() {
 
   text('SPEED', x, y + lh * 10);
   text(nf(speed, 1, 2), x, y + lh * 11);
+
+  // rotation count display
+  text('ROTATIONS', x, y + lh * 13);
+  text('x  ' + rotCount.x, x, y + lh * 14);
+  text('y  ' + rotCount.y, x, y + lh * 15);
+  text('z  ' + rotCount.z + '  (limited)', x, y + lh * 16);
+
+  // START / STOP button
+  let btnX = x;
+  let btnY = y + lh * 18;
+  let btnW = 130;
+  let btnH = 44;
+
+  fill(counting ? color(200, 50, 50) : color(50, 200, 50));
+  noStroke();
+  rect(btnX, btnY, btnW, btnH, 6);
+  fill(0);
+  textSize(16);
+  textAlign(CENTER, CENTER);
+  text(counting ? 'STOP' : 'START', btnX + btnW / 2, btnY + btnH / 2);
+
+  // RESET button
+  let resetX = btnX + btnW + 20;
+  fill(color(80, 80, 80));
+  rect(resetX, btnY, btnW, btnH, 6);
+  fill(255);
+  text('RESET', resetX + btnW / 2, btnY + btnH / 2);
+
+  textAlign(LEFT, BASELINE);
+  textSize(18);
+}
+
+function mousePressed() {
+  let lh = 34;
+  let x = 30;
+  let y = 60;
+  let btnY = y + lh * 18;
+  let btnW = 130;
+  let btnH = 44;
+
+  // START / STOP
+  if (mouseX > x && mouseX < x + btnW &&
+    mouseY > btnY && mouseY < btnY + btnH) {
+    counting = !counting;
+    if (counting && prevAngle.x === null) {
+      // prevAngle will be seeded on the first sensor reading
+    }
+  }
+
+  // RESET
+  let resetX = x + btnW + 20;
+  if (mouseX > resetX && mouseX < resetX + btnW &&
+    mouseY > btnY && mouseY < btnY + btnH) {
+    resetCount();
+  }
 }
