@@ -174,9 +174,9 @@ var btn;
 var startBtn, resetBtn;
 
 // rotation counting
-var counting       = false;
-var cumAngle       = { x: 0, y: 0, z: 0 };
-var prevAngle      = { x: null, y: null, z: null };
+var counting = false;
+var cumAngle = { x: 0, y: 0, z: 0 };
+var prevAngle = { x: null, y: null, z: null };
 var confirmedCount = { x: 0, y: 0, z: 0 };
 
 // returns shortest signed difference between two angles,
@@ -221,8 +221,8 @@ function updateHysteresis(cum, confirmed, full) {
 }
 
 function resetCount() {
-  cumAngle       = { x: 0, y: 0, z: 0 };
-  prevAngle      = { x: null, y: null, z: null };
+  cumAngle = { x: 0, y: 0, z: 0 };
+  prevAngle = { x: null, y: null, z: null };
   confirmedCount = { x: 0, y: 0, z: 0 };
 }
 
@@ -238,19 +238,19 @@ function btnStyle(b, bg, fg) {
 }
 
 function setup() {
-  createCanvas(windowWidth, 800);
+  createCanvas(windowWidth, 700);
   textFont('monospace');
 
   // real HTML buttons — always tappable on mobile
   startBtn = createButton('START');
   btnStyle(startBtn, '#32c832', '#000');
   startBtn.elt.addEventListener('click', toggleCounting);
-  startBtn.elt.addEventListener('touchend', function(e) { e.preventDefault(); toggleCounting(); });
+  startBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); toggleCounting(); });
 
   resetBtn = createButton('RESET');
   btnStyle(resetBtn, '#555', '#fff');
   resetBtn.elt.addEventListener('click', resetCount);
-  resetBtn.elt.addEventListener('touchend', function(e) { e.preventDefault(); resetCount(); });
+  resetBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); resetCount(); });
 
   // on desktop/Android sensors start automatically
   // on iOS a real button tap is required to trigger the permission dialog
@@ -273,7 +273,7 @@ function setup() {
     btn.style('cursor', 'pointer');
     btn.style('z-index', '10');
     btn.elt.addEventListener('click', startSensors);
-    btn.elt.addEventListener('touchend', function(e) { e.preventDefault(); startSensors(); });
+    btn.elt.addEventListener('touchend', function (e) { e.preventDefault(); startSensors(); });
   } else {
     startSensors();
   }
