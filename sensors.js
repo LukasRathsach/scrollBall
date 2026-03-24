@@ -207,7 +207,7 @@ function btnStyle(b, bg, fg) {
 }
 
 function setup() {
-  createCanvas(windowWidth, 680);
+  createCanvas(windowWidth, 800);
   textFont('monospace');
 
   // real HTML buttons — always tappable on mobile
