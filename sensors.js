@@ -167,11 +167,41 @@ var accY = 0;
 var accZ = 0;
 var speed = 0;
 
+var btn;
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   textFont('monospace');
+
+  // on desktop/Android sensors start automatically
+  // on iOS a real button tap is required to trigger the permission dialog
+  var needsPermission =
+    typeof DeviceMotionEvent !== 'undefined' &&
+    typeof DeviceMotionEvent.requestPermission === 'function';
+
+  if (needsPermission) {
+    btn = createButton('TAP TO START');
+    btn.style('position', 'absolute');
+    btn.style('top', '50%');
+    btn.style('left', '50%');
+    btn.style('transform', 'translate(-50%, -50%)');
+    btn.style('font-size', '22px');
+    btn.style('font-family', 'monospace');
+    btn.style('background', 'black');
+    btn.style('color', 'white');
+    btn.style('border', '1px solid white');
+    btn.style('padding', '16px 32px');
+    btn.style('cursor', 'pointer');
+    btn.mousePressed(startSensors);
+  } else {
+    startSensors();
+  }
+}
+
+function startSensors() {
   setupOrientation(0);
   setupMotion(0);
+  if (btn) btn.remove();
 }
 
 function draw() {
@@ -212,10 +242,4 @@ function draw() {
 
   text('SPEED', x, y + lh * 10);
   text(nf(speed, 1, 2), x, y + lh * 11);
-}
-
-// iOS requires sensor permission to be requested from a user gesture
-function touchStarted() {
-  setupOrientation(0);
-  setupMotion(0);
 }
