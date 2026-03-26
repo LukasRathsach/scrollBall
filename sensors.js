@@ -237,7 +237,6 @@ function resetCount() {
   confirmedCount = { x: 0, y: 0, z: 0 };
 }
 
-var bubbles = [];
 var wavePhase = 0;
 
 function btnStyle(b, bg, fg) {
@@ -255,67 +254,45 @@ function btnStyle(b, bg, fg) {
   b.style('letter-spacing', '2px');
 }
 
-// one wave layer — level sets base height, tiltX tilts it left/right
-function drawWaterLayer(level, tiltX, amp, freq, phase, r, g, b, a) {
-  fill(r, g, b, a);
-  noStroke();
-  beginShape();
-  vertex(-10, height + 10);
-  for (let x = -10; x <= width + 10; x += 5) {
-    let tilt = tiltX * ((x - width / 2) / (width / 2));
-    let y = level + tilt
-      + sin(x * freq       + phase)        * amp
-      + sin(x * freq * 2.3 + phase * 1.6)  * amp * 0.4
-      + (noise(x * 0.003, phase * 0.07) - 0.5) * amp * 0.7;
-    vertex(x, y);
-  }
-  vertex(width + 10, height + 10);
-  endShape(CLOSE);
-}
-
 function setup() {
   createCanvas(windowWidth, windowHeight);
   textFont('monospace');
 
-  // light grain — white dots over a pale background
+  // grain buffer — white noise for texture
   grainBuffer = createGraphics(windowWidth, windowHeight);
   grainBuffer.noStroke();
-  for (let i = 0; i < 22000; i++) {
+  for (let i = 0; i < 24000; i++) {
     let gx = random(windowWidth);
     let gy = random(windowHeight);
-    grainBuffer.fill(255, random(6, 28));
+    grainBuffer.fill(255, random(5, 22));
     grainBuffer.rect(gx, gy, 1, 1);
   }
 
-  // START / STOP button
   startBtn = createButton('START');
-  btnStyle(startBtn, 'rgba(255,255,255,0.25)', '#fff');
+  btnStyle(startBtn, 'rgba(255,255,255,0.15)', '#fff');
   startBtn.style('left', 'calc(50% - 90px)');
   startBtn.elt.addEventListener('click', toggleCounting);
   startBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); toggleCounting(); });
 
-  // RESET button
   resetBtn = createButton('RESET');
-  btnStyle(resetBtn, 'rgba(255,255,255,0.1)', '#fff');
+  btnStyle(resetBtn, 'rgba(255,255,255,0.07)', '#fff');
   resetBtn.style('left', 'calc(50% + 10px)');
   resetBtn.elt.addEventListener('click', resetCount);
   resetBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); resetCount(); });
 
-  // DEBUG toggle — top right
   debugBtn = createButton('⋮');
   debugBtn.style('position', 'fixed');
   debugBtn.style('top', '18px');
   debugBtn.style('right', '18px');
   debugBtn.style('font-size', '22px');
   debugBtn.style('background', 'transparent');
-  debugBtn.style('color', 'rgba(255,255,255,0.4)');
+  debugBtn.style('color', 'rgba(255,255,255,0.35)');
   debugBtn.style('border', 'none');
   debugBtn.style('cursor', 'pointer');
   debugBtn.style('z-index', '5');
   debugBtn.elt.addEventListener('click', function () { debugMode = !debugMode; });
   debugBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); debugMode = !debugMode; });
 
-  // iOS permission button
   var needsPermission =
     typeof DeviceMotionEvent !== 'undefined' &&
     typeof DeviceMotionEvent.requestPermission === 'function';
@@ -326,12 +303,12 @@ function setup() {
     btn.style('top', '50%');
     btn.style('left', '50%');
     btn.style('transform', 'translate(-50%, -50%)');
-    btn.style('font-size', '18px');
+    btn.style('font-size', '16px');
     btn.style('font-family', 'monospace');
     btn.style('letter-spacing', '3px');
-    btn.style('background', 'rgba(255,255,255,0.15)');
+    btn.style('background', 'rgba(255,255,255,0.12)');
     btn.style('color', 'white');
-    btn.style('border', '1px solid rgba(255,255,255,0.4)');
+    btn.style('border', '1px solid rgba(255,255,255,0.3)');
     btn.style('padding', '16px 32px');
     btn.style('border-radius', '30px');
     btn.style('cursor', 'pointer');
@@ -347,16 +324,9 @@ function toggleCounting() {
   counting = !counting;
   startBtn.html(counting ? 'STOP' : 'START');
   btnStyle(startBtn,
-    counting ? 'rgba(255,100,100,0.35)' : 'rgba(255,255,255,0.25)',
-    '#fff'
-  );
+    counting ? 'rgba(255,100,100,0.25)' : 'rgba(255,255,255,0.15)', '#fff');
   startBtn.style('left', 'calc(50% - 90px)');
-
-  if (counting) {
-    prevAngle.x = rotX;
-    prevAngle.y = rotY;
-    prevAngle.z = rotZ;
-  }
+  if (counting) { prevAngle.x = rotX; prevAngle.y = rotY; prevAngle.z = rotZ; }
 }
 
 function startSensors() {
@@ -366,21 +336,30 @@ function startSensors() {
 }
 
 function draw() {
-  // sensor updates
+  wavePhase += 0.012;
+
+  // --- SENSOR UPDATES ---
   if (orientationSensor.hasNewValue) {
     let gyro = orientationSensor.get();
-    rotX = gyro.alpha;
-    rotY = gyro.beta;
-    rotZ = gyro.gamma;
+    rotX = gyro.alpha; rotY = gyro.beta; rotZ = gyro.gamma;
 
     if (counting) {
       if (prevAngle.x === null) {
         prevAngle.x = rotX; prevAngle.y = rotY; prevAngle.z = rotZ;
       } else {
-        totalAngle.x += shortestAngle(prevAngle.x, rotX, 360);
-        totalAngle.y += shortestAngle(prevAngle.y, rotY, 360);
-        totalAngle.z += shortestAngle(prevAngle.z, rotZ, 180);
+        let dx = shortestAngle(prevAngle.x, rotX, 360);
+        let dy = shortestAngle(prevAngle.y, rotY, 360);
+        let dz = shortestAngle(prevAngle.z, rotZ, 180);
         prevAngle.x = rotX; prevAngle.y = rotY; prevAngle.z = rotZ;
+
+        // only accumulate the dominant axis to prevent simultaneous counting
+        let adx = abs(dx), ady = abs(dy), adz = abs(dz);
+        if (adx > 0.4 || ady > 0.4 || adz > 0.4) {
+          if (adx >= ady && adx >= adz)      totalAngle.x += dx;
+          else if (ady >= adx && ady >= adz) totalAngle.y += dy;
+          else                               totalAngle.z += dz;
+        }
+
         confirmedCount.x = updateHysteresis(totalAngle.x, confirmedCount.x, 360);
         confirmedCount.y = updateHysteresis(totalAngle.y, confirmedCount.y, 360);
         confirmedCount.z = updateHysteresis(totalAngle.z, confirmedCount.z, 360);
@@ -394,115 +373,85 @@ function draw() {
     speed = sqrt(accX * accX + accY * accY + accZ * accZ);
   }
 
-  // advance wave animation
-  wavePhase += 0.018;
+  // --- BACKGROUND: deep purple radial gradient ---
+  let bgGrad = drawingContext.createRadialGradient(
+    width * 0.5, height * 0.42, 0,
+    width * 0.5, height * 0.5,  max(width, height) * 0.85
+  );
+  bgGrad.addColorStop(0, '#6860F0');
+  bgGrad.addColorStop(0.5, '#3D2FCC');
+  bgGrad.addColorStop(1, '#130E50');
+  drawingContext.fillStyle = bgGrad;
+  drawingContext.fillRect(0, 0, width, height);
 
-  // water level from beta (pitch): tilt forward = water rises
-  let waterLevel = map(constrain(rotY, -80, 80), -80, 80, height * 0.18, height * 0.82);
-  // side tilt from gamma (roll)
-  let tiltX = map(constrain(rotZ, -60, 60), -60, 60, -height * 0.22, height * 0.22);
+  // --- GLOWING ORB: position follows tilt, drifts with noise at rest ---
+  let orbX = map(constrain(rotZ, -60, 60), -60, 60, width * 0.28, width * 0.72);
+  let orbY = map(constrain(rotY, -70, 70), -70, 70, height * 0.22, height * 0.72);
+  orbX += (noise(wavePhase * 0.25, 0)   - 0.5) * 28;
+  orbY += (noise(0, wavePhase * 0.25)   - 0.5) * 28;
 
-  // wave amplitude pulses organically with noise
-  let ampMod = 1 + noise(frameCount * 0.005) * 0.6;
-  let amp = 14 * ampMod;
+  let pulse = 1 + sin(wavePhase * 2.1) * 0.04 + noise(wavePhase * 0.4) * 0.06;
+  let orbR  = min(width, height) * 0.52 * pulse;
 
-  // --- BACKGROUND: pale sky ---
-  background(210, 235, 248);
+  let orbGrad = drawingContext.createRadialGradient(orbX, orbY, 0, orbX, orbY, orbR);
+  orbGrad.addColorStop(0,    'rgba(255,255,255,0.82)');
+  orbGrad.addColorStop(0.12, 'rgba(220,215,255,0.55)');
+  orbGrad.addColorStop(0.35, 'rgba(160,150,255,0.22)');
+  orbGrad.addColorStop(0.7,  'rgba(100, 90,220,0.08)');
+  orbGrad.addColorStop(1,    'rgba( 60, 50,180,0)');
+  drawingContext.fillStyle = orbGrad;
+  drawingContext.fillRect(0, 0, width, height);
 
-  // --- WATER LAYERS (back to front) ---
-  // deep layer
-  drawWaterLayer(waterLevel + 28, tiltX, amp * 0.6, 0.012, wavePhase * 0.6,
-    30, 100, 160, 180);
-  // mid layer
-  drawWaterLayer(waterLevel + 14, tiltX, amp * 0.8, 0.018, wavePhase * 0.85,
-    50, 140, 200, 200);
-  // surface layer
-  drawWaterLayer(waterLevel, tiltX, amp, 0.025, wavePhase,
-    100, 185, 230, 220);
-  // foam highlight at surface
-  drawWaterLayer(waterLevel - 6, tiltX, amp * 0.4, 0.04, wavePhase * 1.4,
-    200, 230, 248, 120);
-
-  // --- BUBBLES ---
-  if (random() < 0.12 && bubbles.length < 28) {
-    bubbles.push({
-      x: random(width),
-      y: waterLevel + random(40, 180),
-      r: random(2, 7),
-      vy: random(0.4, 1.1),
-      vx: random(-0.15, 0.15),
-      alpha: random(35, 90)
-    });
-  }
-  noFill();
-  strokeWeight(1);
-  for (let i = bubbles.length - 1; i >= 0; i--) {
-    let b = bubbles[i];
-    b.y  -= b.vy;
-    b.x  += b.vx + sin(frameCount * 0.04 + i) * 0.2;
-    b.vx += random(-0.02, 0.02);
-    stroke(255, b.alpha);
-    ellipse(b.x, b.y, b.r * 2);
-    if (b.y < waterLevel - b.r) bubbles.splice(i, 1);
-  }
+  // secondary smaller sharp glow at same position
+  let coreGrad = drawingContext.createRadialGradient(orbX, orbY, 0, orbX, orbY, orbR * 0.18);
+  coreGrad.addColorStop(0,   'rgba(255,255,255,0.6)');
+  coreGrad.addColorStop(1,   'rgba(255,255,255,0)');
+  drawingContext.fillStyle = coreGrad;
+  drawingContext.fillRect(0, 0, width, height);
 
   // --- GRAIN ---
   image(grainBuffer, 0, 0);
 
-  // --- FROSTED OVERLAY: blurry light band above waterline ---
-  drawingContext.filter = 'blur(18px)';
-  noStroke();
-  fill(220, 238, 252, 90);
-  rect(0, 0, width, waterLevel + tiltX * 0.5 + 30);
-  drawingContext.filter = 'none';
-
-  // subtle shimmer line at surface
-  noFill();
-  stroke(255, 255, 255, 60);
-  strokeWeight(1.5);
-  let shimmerY = waterLevel + tiltX * ((width / 2 - width / 2) / (width / 2));
-  line(0, shimmerY, width, shimmerY + tiltX * 2);
-
   // --- ROTATION COUNTS ---
   noStroke();
-  let textY = waterLevel - 50;
   textAlign(CENTER, BASELINE);
-  textSize(13);
-  fill(60, 100, 140, 180);
-  text('ROTATIONS', width / 2, textY);
-  textSize(22);
-  fill(30, 70, 120, 220);
-  text(confirmedCount.x + '   ' + confirmedCount.y + '   ' + confirmedCount.z, width / 2, textY + 32);
+  let cy = height * 0.78;
+
   textSize(11);
-  fill(80, 120, 160, 140);
-  text('x              y              z', width / 2, textY + 50);
+  fill(255, 255, 255, 90);
+  text('X              Y              Z', width / 2, cy - 4);
+
+  textSize(28);
+  fill(255, 255, 255, 220);
+  text(confirmedCount.x + '           ' + confirmedCount.y + '           ' + confirmedCount.z, width / 2, cy + 32);
+
   textAlign(LEFT, BASELINE);
 
   // --- DEBUG PANEL ---
   if (debugMode) {
     noStroke();
-    fill(10, 30, 60, 210);
+    fill(10, 8, 40, 215);
     rect(0, 0, 200, height);
-    fill(180, 220, 245);
+    fill(200, 195, 255);
     textSize(12);
     let lh = 21, dx = 14, dy = 46;
-    text('ROTATION',              dx, dy);
-    text('x  ' + nf(rotX, 1, 1), dx, dy + lh);
-    text('y  ' + nf(rotY, 1, 1), dx, dy + lh * 2);
-    text('z  ' + nf(rotZ, 1, 1), dx, dy + lh * 3);
-    text('ACCELERATION',          dx, dy + lh * 5);
-    text('x  ' + nf(accX, 1, 1), dx, dy + lh * 6);
-    text('y  ' + nf(accY, 1, 1), dx, dy + lh * 7);
-    text('z  ' + nf(accZ, 1, 1), dx, dy + lh * 8);
-    text('SPEED',                 dx, dy + lh * 10);
-    text(nf(speed, 1, 1),        dx, dy + lh * 11);
-    text('ROTATIONS',             dx, dy + lh * 13);
-    text('x  ' + confirmedCount.x, dx, dy + lh * 14);
-    text('y  ' + confirmedCount.y, dx, dy + lh * 15);
-    text('z  ' + confirmedCount.z, dx, dy + lh * 16);
-    text('TOTAL ANGLE',           dx, dy + lh * 18);
-    text('x  ' + nf(totalAngle.x, 1, 0), dx, dy + lh * 19);
-    text('y  ' + nf(totalAngle.y, 1, 0), dx, dy + lh * 20);
-    text('z  ' + nf(totalAngle.z, 1, 0), dx, dy + lh * 21);
+    text('ROTATION',                    dx, dy);
+    text('x  ' + nf(rotX, 1, 1),       dx, dy + lh);
+    text('y  ' + nf(rotY, 1, 1),       dx, dy + lh * 2);
+    text('z  ' + nf(rotZ, 1, 1),       dx, dy + lh * 3);
+    text('ACCELERATION',                dx, dy + lh * 5);
+    text('x  ' + nf(accX, 1, 1),       dx, dy + lh * 6);
+    text('y  ' + nf(accY, 1, 1),       dx, dy + lh * 7);
+    text('z  ' + nf(accZ, 1, 1),       dx, dy + lh * 8);
+    text('SPEED',                       dx, dy + lh * 10);
+    text(nf(speed, 1, 1),              dx, dy + lh * 11);
+    text('ROTATIONS',                   dx, dy + lh * 13);
+    text('x  ' + confirmedCount.x,     dx, dy + lh * 14);
+    text('y  ' + confirmedCount.y,     dx, dy + lh * 15);
+    text('z  ' + confirmedCount.z,     dx, dy + lh * 16);
+    text('TOTAL ANGLE',                 dx, dy + lh * 18);
+    text('x  ' + nf(totalAngle.x,1,0), dx, dy + lh * 19);
+    text('y  ' + nf(totalAngle.y,1,0), dx, dy + lh * 20);
+    text('z  ' + nf(totalAngle.z,1,0), dx, dy + lh * 21);
   }
 }
