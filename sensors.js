@@ -175,6 +175,19 @@ var startBtn, resetBtn, debugBtn;
 var debugMode = false;
 var grainBuffer;
 
+// scroll mode
+var reels = [
+  'reels/reel.mp4',
+  'reels/reel (1).mp4',
+  'reels/reel (2).mp4',
+];
+var currentReel = 0;
+var reelVideo   = null;
+var scrollMode  = false;
+var scrollCum   = 0;
+var scrollPrev  = { x: null, y: null, z: null };
+var SCROLL_THRESHOLD = 50; // degrees of total rotation to skip to next reel
+
 // rotation counting
 var counting = false;
 var totalAngle = { x: 0, y: 0, z: 0 };
@@ -320,13 +333,68 @@ function setup() {
   }
 }
 
+function enterScrollMode() {
+  scrollMode = true;
+  scrollCum  = 0;
+  scrollPrev = { x: rotX, y: rotY, z: rotZ };
+
+  reelVideo = document.createElement('video');
+  reelVideo.src = reels[currentReel];
+  reelVideo.setAttribute('playsinline', '');
+  reelVideo.setAttribute('loop', '');
+  reelVideo.style.cssText =
+    'position:fixed;top:0;left:0;width:100%;height:100%;' +
+    'object-fit:cover;z-index:50;background:#000;';
+  document.body.appendChild(reelVideo);
+  reelVideo.play().catch(function () {
+    reelVideo.muted = true;
+    reelVideo.play();
+  });
+
+  // hide canvas behind video
+  document.querySelector('canvas').style.zIndex = '0';
+}
+
+function exitScrollMode() {
+  scrollMode = false;
+  if (reelVideo) {
+    reelVideo.pause();
+    document.body.removeChild(reelVideo);
+    reelVideo = null;
+  }
+  document.querySelector('canvas').style.zIndex = '';
+}
+
+function switchReel() {
+  currentReel = (currentReel + 1) % reels.length;
+  if (reelVideo) {
+    reelVideo.src = reels[currentReel];
+    reelVideo.play().catch(function () {
+      reelVideo.muted = true;
+      reelVideo.play();
+    });
+  }
+  scrollCum  = 0;
+  scrollPrev = { x: rotX, y: rotY, z: rotZ };
+}
+
 function toggleCounting() {
-  counting = !counting;
-  startBtn.html(counting ? 'STOP' : 'START');
-  btnStyle(startBtn,
-    counting ? 'rgba(255,100,100,0.25)' : 'rgba(255,255,255,0.15)', '#fff');
-  startBtn.style('left', 'calc(50% - 90px)');
-  if (counting) { prevAngle.x = rotX; prevAngle.y = rotY; prevAngle.z = rotZ; }
+  if (scrollMode) {
+    counting = false;
+    exitScrollMode();
+    startBtn.html('START');
+    btnStyle(startBtn, 'rgba(255,255,255,0.15)', '#fff');
+    startBtn.style('left', 'calc(50% - 90px)');
+    startBtn.style('z-index', '5');
+  } else {
+    counting = true;
+    prevAngle.x = rotX; prevAngle.y = rotY; prevAngle.z = rotZ;
+    enterScrollMode();
+    startBtn.html('STOP');
+    btnStyle(startBtn, 'rgba(255,100,100,0.35)', '#fff');
+    startBtn.style('left', 'calc(50% - 45px)');
+    startBtn.style('z-index', '60');
+  }
 }
 
 function startSensors() {
@@ -363,6 +431,17 @@ function draw() {
         confirmedCount.x = updateHysteresis(totalAngle.x, confirmedCount.x, 360);
         confirmedCount.y = updateHysteresis(totalAngle.y, confirmedCount.y, 360);
         confirmedCount.z = updateHysteresis(totalAngle.z, confirmedCount.z, 360);
+      }
+    }
+
+    // scroll mode: switch reel when any axis completes a full rotation
+    if (scrollMode) {
+      let prevX = confirmedCount.x, prevY = confirmedCount.y, prevZ = confirmedCount.z;
+      confirmedCount.x = updateHysteresis(totalAngle.x, confirmedCount.x, 360);
+      confirmedCount.y = updateHysteresis(totalAngle.y, confirmedCount.y, 360);
+      confirmedCount.z = updateHysteresis(totalAngle.z, confirmedCount.z, 360);
+      if (confirmedCount.x !== prevX || confirmedCount.y !== prevY || confirmedCount.z !== prevZ) {
+        switchReel();
       }
     }
   }
