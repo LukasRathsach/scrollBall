@@ -452,41 +452,35 @@ function draw() {
     speed = sqrt(accX * accX + accY * accY + accZ * accZ);
   }
 
-  // --- BACKGROUND: deep purple radial gradient ---
-  let bgGrad = drawingContext.createRadialGradient(
-    width * 0.5, height * 0.42, 0,
-    width * 0.5, height * 0.5,  max(width, height) * 0.85
-  );
-  bgGrad.addColorStop(0, '#6860F0');
-  bgGrad.addColorStop(0.5, '#3D2FCC');
-  bgGrad.addColorStop(1, '#130E50');
-  drawingContext.fillStyle = bgGrad;
-  drawingContext.fillRect(0, 0, width, height);
+  // --- BACKGROUND: dark purple base ---
+  background(13, 9, 50);
 
   // --- GLOWING ORB: position follows tilt, drifts with noise at rest ---
   let orbX = map(constrain(rotZ, -60, 60), -60, 60, width * 0.28, width * 0.72);
   let orbY = map(constrain(rotY, -70, 70), -70, 70, height * 0.22, height * 0.72);
-  orbX += (noise(wavePhase * 0.25, 0)   - 0.5) * 28;
-  orbY += (noise(0, wavePhase * 0.25)   - 0.5) * 28;
+  orbX += (noise(wavePhase * 0.25, 0) - 0.5) * 28;
+  orbY += (noise(0, wavePhase * 0.25) - 0.5) * 28;
 
   let pulse = 1 + sin(wavePhase * 2.1) * 0.04 + noise(wavePhase * 0.4) * 0.06;
   let orbR  = min(width, height) * 0.52 * pulse;
 
-  let orbGrad = drawingContext.createRadialGradient(orbX, orbY, 0, orbX, orbY, orbR);
-  orbGrad.addColorStop(0,    'rgba(255,255,255,0.82)');
-  orbGrad.addColorStop(0.12, 'rgba(220,215,255,0.55)');
-  orbGrad.addColorStop(0.35, 'rgba(160,150,255,0.22)');
-  orbGrad.addColorStop(0.7,  'rgba(100, 90,220,0.08)');
-  orbGrad.addColorStop(1,    'rgba( 60, 50,180,0)');
-  drawingContext.fillStyle = orbGrad;
-  drawingContext.fillRect(0, 0, width, height);
-
-  // secondary smaller sharp glow at same position
-  let coreGrad = drawingContext.createRadialGradient(orbX, orbY, 0, orbX, orbY, orbR * 0.18);
-  coreGrad.addColorStop(0,   'rgba(255,255,255,0.6)');
-  coreGrad.addColorStop(1,   'rgba(255,255,255,0)');
-  drawingContext.fillStyle = coreGrad;
-  drawingContext.fillRect(0, 0, width, height);
+  // outer glow rings — p5 native, works on all devices
+  noStroke();
+  let steps = 22;
+  for (let i = steps; i > 0; i--) {
+    let t = i / steps;
+    let r = orbR * t;
+    let a;
+    if      (t > 0.65) a = map(t, 0.65, 1,  8,  0);
+    else if (t > 0.35) a = map(t, 0.35, 0.65, 22, 8);
+    else if (t > 0.12) a = map(t, 0.12, 0.35, 55, 22);
+    else               a = map(t, 0,    0.12, 140, 55);
+    fill(104 + (1-t)*80, 96 + (1-t)*80, 255, a);
+    ellipse(orbX, orbY, r * 2, r * 2);
+  }
+  // sharp white core
+  fill(255, 255, 255, 210);
+  ellipse(orbX, orbY, orbR * 0.10, orbR * 0.10);
 
   // --- GRAIN ---
   image(grainBuffer, 0, 0);
