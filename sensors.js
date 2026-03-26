@@ -237,98 +237,78 @@ function resetCount() {
   confirmedCount = { x: 0, y: 0, z: 0 };
 }
 
+var bubbles = [];
+var wavePhase = 0;
+
 function btnStyle(b, bg, fg) {
-  b.style('font-size', '16px');
+  b.style('font-size', '15px');
   b.style('font-family', 'monospace');
   b.style('background', bg);
   b.style('color', fg);
   b.style('border', 'none');
   b.style('padding', '12px 28px');
   b.style('cursor', 'pointer');
-  b.style('border-radius', '4px');
+  b.style('border-radius', '30px');
   b.style('position', 'fixed');
-  b.style('bottom', '36px');
+  b.style('bottom', '40px');
   b.style('z-index', '5');
+  b.style('letter-spacing', '2px');
 }
 
-// rotate a 3D point by beta (pitch), gamma (roll), alpha (yaw)
-function rotatePoint(x, y, z, beta, gamma, alpha) {
-  // roll (gamma, around Z)
-  let x1 = x * cos(gamma) - y * sin(gamma);
-  let y1 = x * sin(gamma) + y * cos(gamma);
-  let z1 = z;
-  // pitch (beta, around X)
-  let x2 = x1;
-  let y2 = y1 * cos(beta) - z1 * sin(beta);
-  let z2 = y1 * sin(beta) + z1 * cos(beta);
-  // yaw (alpha, around Y)
-  let x3 = x2 * cos(alpha) + z2 * sin(alpha);
-  let y3 = y2;
-  let z3 = -x2 * sin(alpha) + z2 * cos(alpha);
-  return [x3, y3, z3];
-}
-
-// draw one great circle defined by two orthogonal unit vectors u and v
-function drawGreatCircle(cx, cy, r, ux, uy, uz, vx, vy, vz, beta, gamma, alpha) {
-  let N = 80;
-  for (let i = 0; i < N; i++) {
-    let t1 = (i / N) * TWO_PI;
-    let t2 = ((i + 1) / N) * TWO_PI;
-    let [x1, y1, z1] = rotatePoint(
-      ux * cos(t1) + vx * sin(t1),
-      uy * cos(t1) + vy * sin(t1),
-      uz * cos(t1) + vz * sin(t1),
-      beta, gamma, alpha
-    );
-    let [x2, y2, z2] = rotatePoint(
-      ux * cos(t2) + vx * sin(t2),
-      uy * cos(t2) + vy * sin(t2),
-      uz * cos(t2) + vz * sin(t2),
-      beta, gamma, alpha
-    );
-    let front = (z1 + z2) / 2 > 0;
-    stroke(255, front ? 150 : 35);
-    strokeWeight(front ? 1.5 : 0.8);
-    line(cx + x1 * r, cy + y1 * r, cx + x2 * r, cy + y2 * r);
+// one wave layer — level sets base height, tiltX tilts it left/right
+function drawWaterLayer(level, tiltX, amp, freq, phase, r, g, b, a) {
+  fill(r, g, b, a);
+  noStroke();
+  beginShape();
+  vertex(-10, height + 10);
+  for (let x = -10; x <= width + 10; x += 5) {
+    let tilt = tiltX * ((x - width / 2) / (width / 2));
+    let y = level + tilt
+      + sin(x * freq       + phase)        * amp
+      + sin(x * freq * 2.3 + phase * 1.6)  * amp * 0.4
+      + (noise(x * 0.003, phase * 0.07) - 0.5) * amp * 0.7;
+    vertex(x, y);
   }
+  vertex(width + 10, height + 10);
+  endShape(CLOSE);
 }
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
   textFont('monospace');
 
-  // pre-render grain once — redrawn every frame from buffer
+  // light grain — white dots over a pale background
   grainBuffer = createGraphics(windowWidth, windowHeight);
   grainBuffer.noStroke();
-  for (let i = 0; i < 18000; i++) {
+  for (let i = 0; i < 22000; i++) {
     let gx = random(windowWidth);
     let gy = random(windowHeight);
-    grainBuffer.fill(random(180, 255), random(8, 35));
+    grainBuffer.fill(255, random(6, 28));
     grainBuffer.rect(gx, gy, 1, 1);
   }
 
   // START / STOP button
   startBtn = createButton('START');
-  btnStyle(startBtn, '#32c832', '#000');
+  btnStyle(startBtn, 'rgba(255,255,255,0.25)', '#fff');
   startBtn.style('left', 'calc(50% - 90px)');
   startBtn.elt.addEventListener('click', toggleCounting);
   startBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); toggleCounting(); });
 
   // RESET button
   resetBtn = createButton('RESET');
-  btnStyle(resetBtn, '#333', '#fff');
+  btnStyle(resetBtn, 'rgba(255,255,255,0.1)', '#fff');
   resetBtn.style('left', 'calc(50% + 10px)');
   resetBtn.elt.addEventListener('click', resetCount);
   resetBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); resetCount(); });
 
-  // DEBUG toggle button — top right corner
+  // DEBUG toggle — top right
   debugBtn = createButton('⋮');
   debugBtn.style('position', 'fixed');
-  debugBtn.style('top', '20px');
-  debugBtn.style('right', '20px');
-  debugBtn.style('font-size', '24px');
+  debugBtn.style('top', '18px');
+  debugBtn.style('right', '18px');
+  debugBtn.style('font-size', '22px');
   debugBtn.style('background', 'transparent');
-  debugBtn.style('color', 'rgba(255,255,255,0.5)');
+  debugBtn.style('color', 'rgba(255,255,255,0.4)');
   debugBtn.style('border', 'none');
   debugBtn.style('cursor', 'pointer');
   debugBtn.style('z-index', '5');
@@ -346,12 +326,14 @@ function setup() {
     btn.style('top', '50%');
     btn.style('left', '50%');
     btn.style('transform', 'translate(-50%, -50%)');
-    btn.style('font-size', '22px');
+    btn.style('font-size', '18px');
     btn.style('font-family', 'monospace');
-    btn.style('background', 'black');
+    btn.style('letter-spacing', '3px');
+    btn.style('background', 'rgba(255,255,255,0.15)');
     btn.style('color', 'white');
-    btn.style('border', '1px solid white');
+    btn.style('border', '1px solid rgba(255,255,255,0.4)');
     btn.style('padding', '16px 32px');
+    btn.style('border-radius', '30px');
     btn.style('cursor', 'pointer');
     btn.style('z-index', '10');
     btn.elt.addEventListener('click', startSensors);
@@ -364,7 +346,10 @@ function setup() {
 function toggleCounting() {
   counting = !counting;
   startBtn.html(counting ? 'STOP' : 'START');
-  btnStyle(startBtn, counting ? '#c83232' : '#32c832', '#000');
+  btnStyle(startBtn,
+    counting ? 'rgba(255,100,100,0.35)' : 'rgba(255,255,255,0.25)',
+    '#fff'
+  );
   startBtn.style('left', 'calc(50% - 90px)');
 
   if (counting) {
@@ -374,7 +359,6 @@ function toggleCounting() {
   }
 }
 
-// Starter sensoren når knappen bliver trykket på
 function startSensors() {
   setupOrientation(0);
   setupMotion(0);
@@ -382,12 +366,6 @@ function startSensors() {
 }
 
 function draw() {
-  // dark background
-  background(10, 10, 18);
-
-  // grain overlay
-  image(grainBuffer, 0, 0);
-
   // sensor updates
   if (orientationSensor.hasNewValue) {
     let gyro = orientationSensor.get();
@@ -397,18 +375,12 @@ function draw() {
 
     if (counting) {
       if (prevAngle.x === null) {
-        prevAngle.x = rotX;
-        prevAngle.y = rotY;
-        prevAngle.z = rotZ;
+        prevAngle.x = rotX; prevAngle.y = rotY; prevAngle.z = rotZ;
       } else {
         totalAngle.x += shortestAngle(prevAngle.x, rotX, 360);
         totalAngle.y += shortestAngle(prevAngle.y, rotY, 360);
         totalAngle.z += shortestAngle(prevAngle.z, rotZ, 180);
-
-        prevAngle.x = rotX;
-        prevAngle.y = rotY;
-        prevAngle.z = rotZ;
-
+        prevAngle.x = rotX; prevAngle.y = rotY; prevAngle.z = rotZ;
         confirmedCount.x = updateHysteresis(totalAngle.x, confirmedCount.x, 360);
         confirmedCount.y = updateHysteresis(totalAngle.y, confirmedCount.y, 360);
         confirmedCount.z = updateHysteresis(totalAngle.z, confirmedCount.z, 360);
@@ -418,101 +390,117 @@ function draw() {
 
   if (motionSensor.hasNewValue) {
     let motion = motionSensor.get();
-    accX = motion.x;
-    accY = motion.y;
-    accZ = motion.z;
+    accX = motion.x; accY = motion.y; accZ = motion.z;
     speed = sqrt(accX * accX + accY * accY + accZ * accZ);
   }
 
-  // --- 3D SPHERE ---
-  let cx = width / 2;
-  let cy = height * 0.44;
-  let r = min(width, height) * 0.33;
+  // advance wave animation
+  wavePhase += 0.018;
 
-  let beta = radians(rotY);
-  let gamma = radians(rotZ);
-  let alpha = radians(rotX);
+  // water level from beta (pitch): tilt forward = water rises
+  let waterLevel = map(constrain(rotY, -80, 80), -80, 80, height * 0.18, height * 0.82);
+  // side tilt from gamma (roll)
+  let tiltX = map(constrain(rotZ, -60, 60), -60, 60, -height * 0.22, height * 0.22);
 
-  // soft glow behind sphere
-  noStroke();
-  for (let i = 6; i > 0; i--) {
-    fill(80, 120, 220, i * 5);
-    ellipse(cx, cy, (r + i * 10) * 2, (r + i * 10) * 2);
+  // wave amplitude pulses organically with noise
+  let ampMod = 1 + noise(frameCount * 0.005) * 0.6;
+  let amp = 14 * ampMod;
+
+  // --- BACKGROUND: pale sky ---
+  background(210, 235, 248);
+
+  // --- WATER LAYERS (back to front) ---
+  // deep layer
+  drawWaterLayer(waterLevel + 28, tiltX, amp * 0.6, 0.012, wavePhase * 0.6,
+    30, 100, 160, 180);
+  // mid layer
+  drawWaterLayer(waterLevel + 14, tiltX, amp * 0.8, 0.018, wavePhase * 0.85,
+    50, 140, 200, 200);
+  // surface layer
+  drawWaterLayer(waterLevel, tiltX, amp, 0.025, wavePhase,
+    100, 185, 230, 220);
+  // foam highlight at surface
+  drawWaterLayer(waterLevel - 6, tiltX, amp * 0.4, 0.04, wavePhase * 1.4,
+    200, 230, 248, 120);
+
+  // --- BUBBLES ---
+  if (random() < 0.12 && bubbles.length < 28) {
+    bubbles.push({
+      x: random(width),
+      y: waterLevel + random(40, 180),
+      r: random(2, 7),
+      vy: random(0.4, 1.1),
+      vx: random(-0.15, 0.15),
+      alpha: random(35, 90)
+    });
   }
-
-  // sphere outline
   noFill();
-  stroke(255, 180);
-  strokeWeight(2);
-  ellipse(cx, cy, r * 2, r * 2);
-
-  // three great circles: XY, XZ, YZ planes
-  drawGreatCircle(cx, cy, r, 1, 0, 0, 0, 1, 0, beta, gamma, alpha); // XY
-  drawGreatCircle(cx, cy, r, 1, 0, 0, 0, 0, 1, beta, gamma, alpha); // XZ
-  drawGreatCircle(cx, cy, r, 0, 1, 0, 0, 0, 1, beta, gamma, alpha); // YZ
-
-  // ball position from orientation (beta = pitch, gamma = roll)
-  let px = cos(beta) * sin(gamma);
-  let py = -sin(beta);
-  let pz = cos(beta) * cos(gamma);
-  let [bx, by, bz] = rotatePoint(px, py, pz, 0, 0, alpha);
-
-  let sx = cx + bx * r;
-  let sy = cy + by * r;
-  let dotSize = map(bz, -1, 1, 10, 22);
-  let dotAlpha = map(bz, -1, 1, 80, 255);
-
-  // dot glow
-  noStroke();
-  for (let i = 5; i > 0; i--) {
-    fill(255, 255, 255, i * 8);
-    ellipse(sx, sy, dotSize + i * 7, dotSize + i * 7);
+  strokeWeight(1);
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    let b = bubbles[i];
+    b.y  -= b.vy;
+    b.x  += b.vx + sin(frameCount * 0.04 + i) * 0.2;
+    b.vx += random(-0.02, 0.02);
+    stroke(255, b.alpha);
+    ellipse(b.x, b.y, b.r * 2);
+    if (b.y < waterLevel - b.r) bubbles.splice(i, 1);
   }
-  fill(255, dotAlpha);
-  ellipse(sx, sy, dotSize, dotSize);
 
-  // --- ROTATION COUNTS (always visible) ---
+  // --- GRAIN ---
+  image(grainBuffer, 0, 0);
+
+  // --- FROSTED OVERLAY: blurry light band above waterline ---
+  drawingContext.filter = 'blur(18px)';
   noStroke();
-  fill(255, 200);
-  textSize(15);
+  fill(220, 238, 252, 90);
+  rect(0, 0, width, waterLevel + tiltX * 0.5 + 30);
+  drawingContext.filter = 'none';
+
+  // subtle shimmer line at surface
+  noFill();
+  stroke(255, 255, 255, 60);
+  strokeWeight(1.5);
+  let shimmerY = waterLevel + tiltX * ((width / 2 - width / 2) / (width / 2));
+  line(0, shimmerY, width, shimmerY + tiltX * 2);
+
+  // --- ROTATION COUNTS ---
+  noStroke();
+  let textY = waterLevel - 50;
   textAlign(CENTER, BASELINE);
-  let countY = height - 100;
-  text(
-    'x  ' + confirmedCount.x + '     y  ' + confirmedCount.y + '     z  ' + confirmedCount.z,
-    cx, countY
-  );
+  textSize(13);
+  fill(60, 100, 140, 180);
+  text('ROTATIONS', width / 2, textY);
+  textSize(22);
+  fill(30, 70, 120, 220);
+  text(confirmedCount.x + '   ' + confirmedCount.y + '   ' + confirmedCount.z, width / 2, textY + 32);
+  textSize(11);
+  fill(80, 120, 160, 140);
+  text('x              y              z', width / 2, textY + 50);
   textAlign(LEFT, BASELINE);
 
   // --- DEBUG PANEL ---
   if (debugMode) {
-    fill(0, 0, 0, 200);
     noStroke();
-    rect(0, 0, 195, height);
-
-    fill(255, 180);
-    textSize(13);
-    let lh = 22;
-    let dx = 14, dy = 50;
-
-    text('ROTATION', dx, dy);
+    fill(10, 30, 60, 210);
+    rect(0, 0, 200, height);
+    fill(180, 220, 245);
+    textSize(12);
+    let lh = 21, dx = 14, dy = 46;
+    text('ROTATION',              dx, dy);
     text('x  ' + nf(rotX, 1, 1), dx, dy + lh);
     text('y  ' + nf(rotY, 1, 1), dx, dy + lh * 2);
     text('z  ' + nf(rotZ, 1, 1), dx, dy + lh * 3);
-
-    text('ACCELERATION', dx, dy + lh * 5);
+    text('ACCELERATION',          dx, dy + lh * 5);
     text('x  ' + nf(accX, 1, 1), dx, dy + lh * 6);
     text('y  ' + nf(accY, 1, 1), dx, dy + lh * 7);
     text('z  ' + nf(accZ, 1, 1), dx, dy + lh * 8);
-
-    text('SPEED', dx, dy + lh * 10);
-    text(nf(speed, 1, 1), dx, dy + lh * 11);
-
-    text('ROTATIONS', dx, dy + lh * 13);
+    text('SPEED',                 dx, dy + lh * 10);
+    text(nf(speed, 1, 1),        dx, dy + lh * 11);
+    text('ROTATIONS',             dx, dy + lh * 13);
     text('x  ' + confirmedCount.x, dx, dy + lh * 14);
     text('y  ' + confirmedCount.y, dx, dy + lh * 15);
     text('z  ' + confirmedCount.z, dx, dy + lh * 16);
-
-    text('TOTAL ANGLE', dx, dy + lh * 18);
+    text('TOTAL ANGLE',           dx, dy + lh * 18);
     text('x  ' + nf(totalAngle.x, 1, 0), dx, dy + lh * 19);
     text('y  ' + nf(totalAngle.y, 1, 0), dx, dy + lh * 20);
     text('z  ' + nf(totalAngle.z, 1, 0), dx, dy + lh * 21);
