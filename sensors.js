@@ -171,11 +171,13 @@ var accZ = 0;
 var speed = 0;
 
 var btn;
-var startBtn, resetBtn;
+var startBtn, resetBtn, debugBtn;
+var debugMode = false;
+var grainBuffer;
 
 // rotation counting
 var counting = false;
-var cumAngle = { x: 0, y: 0, z: 0 };
+var totalAngle = { x: 0, y: 0, z: 0 };
 var prevAngle = { x: null, y: null, z: null };
 var confirmedCount = { x: 0, y: 0, z: 0 };
 
@@ -198,7 +200,7 @@ var HYST = 20;
 function getRaw(cum, full) {
   let early = full * EARLY; // 36° for full=360
   if (cum >= 0) return Math.trunc((cum + early) / full);
-  else          return Math.trunc((cum - early) / full);
+  else return Math.trunc((cum - early) / full);
 }
 
 function updateHysteresis(cum, confirmed, full) {
@@ -230,39 +232,110 @@ function updateHysteresis(cum, confirmed, full) {
 }
 
 function resetCount() {
-  cumAngle = { x: 0, y: 0, z: 0 };
+  totalAngle = { x: 0, y: 0, z: 0 };
   prevAngle = { x: null, y: null, z: null };
   confirmedCount = { x: 0, y: 0, z: 0 };
 }
 
 function btnStyle(b, bg, fg) {
-  b.style('font-size', '18px');
+  b.style('font-size', '16px');
   b.style('font-family', 'monospace');
   b.style('background', bg);
   b.style('color', fg);
-  b.style('border', '1px solid #555');
+  b.style('border', 'none');
   b.style('padding', '12px 28px');
   b.style('cursor', 'pointer');
-  b.style('margin', '8px 8px 0 0');
+  b.style('border-radius', '4px');
+  b.style('position', 'fixed');
+  b.style('bottom', '36px');
+  b.style('z-index', '5');
+}
+
+// rotate a 3D point by beta (pitch), gamma (roll), alpha (yaw)
+function rotatePoint(x, y, z, beta, gamma, alpha) {
+  // roll (gamma, around Z)
+  let x1 = x * cos(gamma) - y * sin(gamma);
+  let y1 = x * sin(gamma) + y * cos(gamma);
+  let z1 = z;
+  // pitch (beta, around X)
+  let x2 = x1;
+  let y2 = y1 * cos(beta) - z1 * sin(beta);
+  let z2 = y1 * sin(beta) + z1 * cos(beta);
+  // yaw (alpha, around Y)
+  let x3 = x2 * cos(alpha) + z2 * sin(alpha);
+  let y3 = y2;
+  let z3 = -x2 * sin(alpha) + z2 * cos(alpha);
+  return [x3, y3, z3];
+}
+
+// draw one great circle defined by two orthogonal unit vectors u and v
+function drawGreatCircle(cx, cy, r, ux, uy, uz, vx, vy, vz, beta, gamma, alpha) {
+  let N = 80;
+  for (let i = 0; i < N; i++) {
+    let t1 = (i / N) * TWO_PI;
+    let t2 = ((i + 1) / N) * TWO_PI;
+    let [x1, y1, z1] = rotatePoint(
+      ux * cos(t1) + vx * sin(t1),
+      uy * cos(t1) + vy * sin(t1),
+      uz * cos(t1) + vz * sin(t1),
+      beta, gamma, alpha
+    );
+    let [x2, y2, z2] = rotatePoint(
+      ux * cos(t2) + vx * sin(t2),
+      uy * cos(t2) + vy * sin(t2),
+      uz * cos(t2) + vz * sin(t2),
+      beta, gamma, alpha
+    );
+    let front = (z1 + z2) / 2 > 0;
+    stroke(255, front ? 150 : 35);
+    strokeWeight(front ? 1.5 : 0.8);
+    line(cx + x1 * r, cy + y1 * r, cx + x2 * r, cy + y2 * r);
+  }
 }
 
 function setup() {
-  createCanvas(windowWidth, 700);
+  createCanvas(windowWidth, windowHeight);
   textFont('monospace');
 
-  // real HTML buttons — always tappable on mobile
+  // pre-render grain once — redrawn every frame from buffer
+  grainBuffer = createGraphics(windowWidth, windowHeight);
+  grainBuffer.noStroke();
+  for (let i = 0; i < 18000; i++) {
+    let gx = random(windowWidth);
+    let gy = random(windowHeight);
+    grainBuffer.fill(random(180, 255), random(8, 35));
+    grainBuffer.rect(gx, gy, 1, 1);
+  }
+
+  // START / STOP button
   startBtn = createButton('START');
   btnStyle(startBtn, '#32c832', '#000');
+  startBtn.style('left', 'calc(50% - 90px)');
   startBtn.elt.addEventListener('click', toggleCounting);
   startBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); toggleCounting(); });
 
+  // RESET button
   resetBtn = createButton('RESET');
-  btnStyle(resetBtn, '#555', '#fff');
+  btnStyle(resetBtn, '#333', '#fff');
+  resetBtn.style('left', 'calc(50% + 10px)');
   resetBtn.elt.addEventListener('click', resetCount);
   resetBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); resetCount(); });
 
-  // on desktop/Android sensors start automatically
-  // on iOS a real button tap is required to trigger the permission dialog
+  // DEBUG toggle button — top right corner
+  debugBtn = createButton('⋮');
+  debugBtn.style('position', 'fixed');
+  debugBtn.style('top', '20px');
+  debugBtn.style('right', '20px');
+  debugBtn.style('font-size', '24px');
+  debugBtn.style('background', 'transparent');
+  debugBtn.style('color', 'rgba(255,255,255,0.5)');
+  debugBtn.style('border', 'none');
+  debugBtn.style('cursor', 'pointer');
+  debugBtn.style('z-index', '5');
+  debugBtn.elt.addEventListener('click', function () { debugMode = !debugMode; });
+  debugBtn.elt.addEventListener('touchend', function (e) { e.preventDefault(); debugMode = !debugMode; });
+
+  // iOS permission button
   var needsPermission =
     typeof DeviceMotionEvent !== 'undefined' &&
     typeof DeviceMotionEvent.requestPermission === 'function';
@@ -292,9 +365,9 @@ function toggleCounting() {
   counting = !counting;
   startBtn.html(counting ? 'STOP' : 'START');
   btnStyle(startBtn, counting ? '#c83232' : '#32c832', '#000');
+  startBtn.style('left', 'calc(50% - 90px)');
 
   if (counting) {
-    // seed starting point from current position at the moment START is pressed
     prevAngle.x = rotX;
     prevAngle.y = rotY;
     prevAngle.z = rotZ;
@@ -309,34 +382,36 @@ function startSensors() {
 }
 
 function draw() {
-  background(0);
+  // dark background
+  background(10, 10, 18);
 
-  // hvis sensor opdager noget nyt så se lige hvad det er
+  // grain overlay
+  image(grainBuffer, 0, 0);
+
+  // sensor updates
   if (orientationSensor.hasNewValue) {
     let gyro = orientationSensor.get();
     rotX = gyro.alpha;
     rotY = gyro.beta;
     rotZ = gyro.gamma;
 
-    // cumulative angle tracking — sum up small steps and divide by 360
     if (counting) {
       if (prevAngle.x === null) {
         prevAngle.x = rotX;
         prevAngle.y = rotY;
         prevAngle.z = rotZ;
       } else {
-        cumAngle.x += shortestAngle(prevAngle.x, rotX, 360); // alpha: 0-360
-        cumAngle.y += shortestAngle(prevAngle.y, rotY, 360); // beta: -180 to 180
-        cumAngle.z += shortestAngle(prevAngle.z, rotZ, 180); // gamma: -90 to 90 (limited!)
+        totalAngle.x += shortestAngle(prevAngle.x, rotX, 360);
+        totalAngle.y += shortestAngle(prevAngle.y, rotY, 360);
+        totalAngle.z += shortestAngle(prevAngle.z, rotZ, 180);
 
         prevAngle.x = rotX;
         prevAngle.y = rotY;
         prevAngle.z = rotZ;
 
-        // all axes use 360 — Z needs 2 gamma sweeps (2×180°) per full rotation
-        confirmedCount.x = updateHysteresis(cumAngle.x, confirmedCount.x, 360);
-        confirmedCount.y = updateHysteresis(cumAngle.y, confirmedCount.y, 360);
-        confirmedCount.z = updateHysteresis(cumAngle.z, confirmedCount.z, 360);
+        confirmedCount.x = updateHysteresis(totalAngle.x, confirmedCount.x, 360);
+        confirmedCount.y = updateHysteresis(totalAngle.y, confirmedCount.y, 360);
+        confirmedCount.z = updateHysteresis(totalAngle.z, confirmedCount.z, 360);
       }
     }
   }
@@ -349,31 +424,97 @@ function draw() {
     speed = sqrt(accX * accX + accY * accY + accZ * accZ);
   }
 
-  // lidt design med tekst, baggrund osv.
-  fill(255);
+  // --- 3D SPHERE ---
+  let cx = width / 2;
+  let cy = height * 0.44;
+  let r = min(width, height) * 0.33;
+
+  let beta = radians(rotY);
+  let gamma = radians(rotZ);
+  let alpha = radians(rotX);
+
+  // soft glow behind sphere
   noStroke();
-  textSize(18);
+  for (let i = 6; i > 0; i--) {
+    fill(80, 120, 220, i * 5);
+    ellipse(cx, cy, (r + i * 10) * 2, (r + i * 10) * 2);
+  }
 
-  let lh = 34;
-  let x = 30;
-  let y = 60;
+  // sphere outline
+  noFill();
+  stroke(255, 180);
+  strokeWeight(2);
+  ellipse(cx, cy, r * 2, r * 2);
 
-  text('ROTATION', x, y);
-  text('x  ' + nf(rotX, 1, 1), x, y + lh * 1);
-  text('y  ' + nf(rotY, 1, 1), x, y + lh * 2);
-  text('z  ' + nf(rotZ, 1, 1), x, y + lh * 3);
+  // three great circles: XY, XZ, YZ planes
+  drawGreatCircle(cx, cy, r, 1, 0, 0, 0, 1, 0, beta, gamma, alpha); // XY
+  drawGreatCircle(cx, cy, r, 1, 0, 0, 0, 0, 1, beta, gamma, alpha); // XZ
+  drawGreatCircle(cx, cy, r, 0, 1, 0, 0, 0, 1, beta, gamma, alpha); // YZ
 
-  text('ACCELERATION', x, y + lh * 5);
-  text('x  ' + nf(accX, 1, 1), x, y + lh * 6);
-  text('y  ' + nf(accY, 1, 1), x, y + lh * 7);
-  text('z  ' + nf(accZ, 1, 1), x, y + lh * 8);
+  // ball position from orientation (beta = pitch, gamma = roll)
+  let px = cos(beta) * sin(gamma);
+  let py = -sin(beta);
+  let pz = cos(beta) * cos(gamma);
+  let [bx, by, bz] = rotatePoint(px, py, pz, 0, 0, alpha);
 
-  text('SPEED', x, y + lh * 10);
-  text(nf(speed, 1, 2), x, y + lh * 11);
+  let sx = cx + bx * r;
+  let sy = cy + by * r;
+  let dotSize = map(bz, -1, 1, 10, 22);
+  let dotAlpha = map(bz, -1, 1, 80, 255);
 
-  // rotation count display
-  text('ROTATIONS', x, y + lh * 13);
-  text('x  ' + confirmedCount.x, x, y + lh * 14);
-  text('y  ' + confirmedCount.y, x, y + lh * 15);
-  text('z  ' + confirmedCount.z, x, y + lh * 16);
+  // dot glow
+  noStroke();
+  for (let i = 5; i > 0; i--) {
+    fill(255, 255, 255, i * 8);
+    ellipse(sx, sy, dotSize + i * 7, dotSize + i * 7);
+  }
+  fill(255, dotAlpha);
+  ellipse(sx, sy, dotSize, dotSize);
+
+  // --- ROTATION COUNTS (always visible) ---
+  noStroke();
+  fill(255, 200);
+  textSize(15);
+  textAlign(CENTER, BASELINE);
+  let countY = height - 100;
+  text(
+    'x  ' + confirmedCount.x + '     y  ' + confirmedCount.y + '     z  ' + confirmedCount.z,
+    cx, countY
+  );
+  textAlign(LEFT, BASELINE);
+
+  // --- DEBUG PANEL ---
+  if (debugMode) {
+    fill(0, 0, 0, 200);
+    noStroke();
+    rect(0, 0, 195, height);
+
+    fill(255, 180);
+    textSize(13);
+    let lh = 22;
+    let dx = 14, dy = 50;
+
+    text('ROTATION', dx, dy);
+    text('x  ' + nf(rotX, 1, 1), dx, dy + lh);
+    text('y  ' + nf(rotY, 1, 1), dx, dy + lh * 2);
+    text('z  ' + nf(rotZ, 1, 1), dx, dy + lh * 3);
+
+    text('ACCELERATION', dx, dy + lh * 5);
+    text('x  ' + nf(accX, 1, 1), dx, dy + lh * 6);
+    text('y  ' + nf(accY, 1, 1), dx, dy + lh * 7);
+    text('z  ' + nf(accZ, 1, 1), dx, dy + lh * 8);
+
+    text('SPEED', dx, dy + lh * 10);
+    text(nf(speed, 1, 1), dx, dy + lh * 11);
+
+    text('ROTATIONS', dx, dy + lh * 13);
+    text('x  ' + confirmedCount.x, dx, dy + lh * 14);
+    text('y  ' + confirmedCount.y, dx, dy + lh * 15);
+    text('z  ' + confirmedCount.z, dx, dy + lh * 16);
+
+    text('TOTAL ANGLE', dx, dy + lh * 18);
+    text('x  ' + nf(totalAngle.x, 1, 0), dx, dy + lh * 19);
+    text('y  ' + nf(totalAngle.y, 1, 0), dx, dy + lh * 20);
+    text('z  ' + nf(totalAngle.z, 1, 0), dx, dy + lh * 21);
+  }
 }
