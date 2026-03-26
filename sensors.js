@@ -189,20 +189,29 @@ function shortestAngle(prev, curr, wrap) {
   return d;
 }
 
+// Count 10% early: trigger at 90% of a full rotation (324° instead of 360°)
+var EARLY = 0.10;
 // Hysteresis: counting forward is free, but reversing needs HYST degrees
-// to cross back before the count drops — prevents flickering at boundaries.
+// past the early-trigger boundary before the count drops.
 var HYST = 20;
 
+function getRaw(cum, full) {
+  let early = full * EARLY; // 36° for full=360
+  if (cum >= 0) return Math.trunc((cum + early) / full);
+  else          return Math.trunc((cum - early) / full);
+}
+
 function updateHysteresis(cum, confirmed, full) {
-  let raw = Math.trunc(cum / full);
+  let early = full * EARLY; // 36°
+  let raw = getRaw(cum, full);
   if (raw === confirmed) return confirmed;
 
   if (raw > confirmed) {
     if (confirmed >= 0) {
       return confirmed + 1;             // counting positive: free
     } else {
-      // uncounting from negative: need HYST past the boundary
-      if (cum > confirmed * full + HYST) return confirmed + 1;
+      // uncounting from negative: boundary at confirmed*full+early (e.g. -324°)
+      if (cum > confirmed * full + early + HYST) return confirmed + 1;
       return confirmed;
     }
   }
@@ -211,8 +220,8 @@ function updateHysteresis(cum, confirmed, full) {
     if (confirmed <= 0) {
       return confirmed - 1;             // counting negative: free
     } else {
-      // uncounting from positive: need HYST past the boundary
-      if (cum < confirmed * full - HYST) return confirmed - 1;
+      // uncounting from positive: boundary at confirmed*full-early (e.g. 324°)
+      if (cum < confirmed * full - early - HYST) return confirmed - 1;
       return confirmed;
     }
   }
@@ -283,6 +292,13 @@ function toggleCounting() {
   counting = !counting;
   startBtn.html(counting ? 'STOP' : 'START');
   btnStyle(startBtn, counting ? '#c83232' : '#32c832', '#000');
+
+  if (counting) {
+    // seed starting point from current position at the moment START is pressed
+    prevAngle.x = rotX;
+    prevAngle.y = rotY;
+    prevAngle.z = rotZ;
+  }
 }
 
 // Starter sensoren når knappen bliver trykket på
